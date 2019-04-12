@@ -8,7 +8,7 @@ from anastruct.fem import plotter
 from . import system_components
 from anastruct.vertex import vertex_range
 from anastruct.sectionbase import properties
-from anastruct.dxfloader.dxfloader import dxfloader
+from anastruct.dxfloader.dxfloader import dxf_loader
 
 
 class SystemElements:
@@ -1100,7 +1100,7 @@ class SystemElements:
 
         :param dxf_file_path: (str) Path to dxf file.
         """
-        dxfloader.load_dxf_data_to_system(dxf_file_path, self)
+        dxf_loader.load_dxf_data_to_system(dxf_file_path, self)
 
 
 def _negative_index_to_id(idx, collection):

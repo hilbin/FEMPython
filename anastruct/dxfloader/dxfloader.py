@@ -118,4 +118,4 @@ class DxfLoader:
         return None
 
 
-dxfloader = DxfLoader()
+dxf_loader = DxfLoader()
