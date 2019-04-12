@@ -1,7 +1,7 @@
 import os
-import logging
 import ezdxf
-from anastruct.dxfloader.geo_utils import Point, Line
+from anastruct.dxfloader.geo_utils import Point
+import numpy as np
 
 
 def round_coordinate(point, dig=5):
@@ -55,20 +55,26 @@ class DxfLoader:
                     self.dxf_texts_point_command.append(e)
 
     def _execute_command_from_dxf(self):
-        # executing element commands
+        """
+        Dynamically executes commands from dxf file.
+        """
+        # Add element to the system
         for line in self.dxf_lines:
+            p1 = np.array(line.dxf.start[:2]).round(5)
+            p2 = np.array(line.dxf.end[:2]).round(5)
             line_start_point = list(line.dxf.start[:2])
             round_coordinate(line_start_point)
             line_end_point = list(line.dxf.end[:2])
             round_coordinate(line_end_point)
-            # --
-            dxf_command_text = self._get_nearest_text_to_line(Line(Point(line_start_point), Point(line_end_point)))
+
+            dxf_command_text = self._get_nearest_text_to_line(p1, p2)
+
+            coordinates = [p1.tolist(), p2.tolist()]
             if dxf_command_text:
-                command = 'self.system.' + dxf_command_text.replace('(', '(location=' + str(
-                    [line_start_point, line_end_point]) + ',')
+                command = 'self.system.' + dxf_command_text.replace('(', '(location={},'.format(coordinates))
                 exec(command)
             else:
-                self.system.add_element([line_start_point, line_end_point])
+                self.system.add_element(coordinates)
         # executing point commands
         for point in self._get_model_points():
             dxf_command_text = self._get_nearest_text_to_point(Point(point))
@@ -77,22 +83,28 @@ class DxfLoader:
                 command = 'self.system.' + dxf_command_text.replace('(', '(node_id=' + str(id) + ',')
                 exec(command)
 
-    def _get_nearest_text_to_line(self, line):
+    def _get_nearest_text_to_line(self, p1, p2):
+        """
+        Get text commands from dxf file. Example: 'add_element(steelsection='IPE 300')
+'
+        :param p1: (array) 2d vector
+        :param p2: (array) 2d vector
+        :return: (str) Executable text command.
+        """
         if not self.dxf_texts_element_command:
             return None
-        tdists = []
-        for txt in self.dxf_texts_element_command:
-            dxfinsert = txt.dxf.insert
-            textp = Point([dxfinsert[0], dxfinsert[1]])
-            txtdist = line.distance(textp)
-            tdists.append(txtdist)
-        mintdist = min(tdists)
-        mintdistindex = tdists.index(mintdist)
-        t_entity = self.dxf_texts_element_command[mintdistindex]  # the closest text entity
-        maxdist = 2.0 * t_entity.dxf.height
 
-        # and if the text is closer than it 2xheight it is the one we looking for
-        if mintdist < maxdist:
+        # Find minimal perpendicular distance to line
+        distances = np.empty(len(self.dxf_texts_element_command))
+        for i, txt in enumerate(self.dxf_texts_element_command):
+            p = np.array(txt.dxf.insert[:2])
+            distances[i] = np.linalg.norm(np.cross(p2 - p1, p1 - p)) / np.linalg.norm(p2 - p1)
+
+        idx = np.argmin(distances)
+        t_entity = self.dxf_texts_element_command[idx]  # the closest text entity
+
+        # if the text is closer than it 2 * height it is the one we are looking for
+        if np.min(distances) < t_entity.dxf.height * 2:
             return t_entity.dxf.text
         else:
             return None
