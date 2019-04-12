@@ -961,7 +961,7 @@ class SystemElements:
         :param vertex: (Vertex/ list/ tpl) Vertex_xz, [x, y], (x, y)
         :return: (int/ None) id of the node at the location of the vertex
         """
-        if isinstance(vertex, (list, tuple)):
+        if isinstance(vertex, (list, tuple, np.ndarray)):
             vertex = Vertex(vertex)
         try:
             tol = 1e-9
@@ -1095,6 +1095,11 @@ class SystemElements:
         return system
 
     def load_dxf_data_to_system(self, dxf_file_path):
+        """
+        Load system elements and loads from dxf file.
+
+        :param dxf_file_path: (str) Path to dxf file.
+        """
         dxfloader.load_dxf_data_to_system(dxf_file_path, self)
 
 

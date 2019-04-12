@@ -1,13 +1,6 @@
 import os
 import ezdxf
-from anastruct.dxfloader.geo_utils import Point
 import numpy as np
-
-
-def round_coordinate(point, dig=5):
-    point[0] = round(point[0], dig)
-    point[1] = round(point[1], dig)
-
 
 element_commands = ['add_element', 'add_multiple_elements', 'add_truss_element']
 point_commands = ['add_support', 'point_load', 'moment_load']
@@ -62,11 +55,6 @@ class DxfLoader:
         for line in self.dxf_lines:
             p1 = np.array(line.dxf.start[:2]).round(5)
             p2 = np.array(line.dxf.end[:2]).round(5)
-            line_start_point = list(line.dxf.start[:2])
-            round_coordinate(line_start_point)
-            line_end_point = list(line.dxf.end[:2])
-            round_coordinate(line_end_point)
-
             dxf_command_text = self._get_nearest_text_to_line(p1, p2)
 
             coordinates = [p1.tolist(), p2.tolist()]
@@ -75,12 +63,13 @@ class DxfLoader:
                 exec(command)
             else:
                 self.system.add_element(coordinates)
-        # executing point commands
-        for point in self._get_model_points():
-            dxf_command_text = self._get_nearest_text_to_point(Point(point))
+        # Add point loads and supports
+        for p in set([p for line in self.dxf_lines for p in [line.dxf.start[:2], line.dxf.end[:2]]]):
+            p = np.array(p).round(5)
+            dxf_command_text = self._get_nearest_text_to_point(p)
             if dxf_command_text:
-                id = self.system.find_node_id(point)
-                command = 'self.system.' + dxf_command_text.replace('(', '(node_id=' + str(id) + ',')
+                node_id = self.system.find_node_id(p)
+                command = 'self.system.' + dxf_command_text.replace('(', '(node_id={},'.format(node_id))
                 exec(command)
 
     def _get_nearest_text_to_line(self, p1, p2):
@@ -100,46 +89,33 @@ class DxfLoader:
             p = np.array(txt.dxf.insert[:2])
             distances[i] = np.linalg.norm(np.cross(p2 - p1, p1 - p)) / np.linalg.norm(p2 - p1)
 
-        idx = np.argmin(distances)
-        t_entity = self.dxf_texts_element_command[idx]  # the closest text entity
+        t_entity = self.dxf_texts_element_command[np.argmin(distances)]  # the closest text entity
 
         # if the text is closer than it 2 * height it is the one we are looking for
         if np.min(distances) < t_entity.dxf.height * 2:
             return t_entity.dxf.text
-        else:
-            return None
+        return None
 
-    def _get_nearest_text_to_point(self, point):
+    def _get_nearest_text_to_point(self, p):
+        """
+        Get text commands from dxf file. Example: 'point_load( Fy=-10000)'
+'
+        :param p: (array) 2d vector
+        :return: (str) Executable text command.
+        """
         if not self.dxf_texts_point_command:
             return None
-        tdists = []
-        for txt in self.dxf_texts_point_command:
-            dxfinsert = txt.dxf.insert
-            textp = Point([dxfinsert[0], dxfinsert[1]])
-            txtdist = point.distance(textp)
-            tdists.append(txtdist)
-        mintdist = min(tdists)
-        mintdistindex = tdists.index(mintdist)
-        t_entity = self.dxf_texts_point_command[mintdistindex]  # the closest text entity
-        maxdist = 2.0 * t_entity.dxf.height
+        distances = np.empty(len(self.dxf_texts_point_command))
+        for i, txt in enumerate(self.dxf_texts_point_command):
+            p_t = np.array(txt.dxf.insert[:2])
+            distances[i] = np.linalg.norm(p - p_t)
 
-        # and if the text is closer than it 2xheight it is the one we looking for
-        if mintdist < maxdist:
+        t_entity = self.dxf_texts_point_command[np.argmin(distances)]  # the closest text entity
+
+        # if the text is closer than it 2 * height it is the one we are looking for
+        if np.min(distances) < t_entity.dxf.height * 2:
             return t_entity.dxf.text
-        else:
-            return None
-
-    def _get_model_points(self):
-        points = []
-        for line in self.dxf_lines:
-            line_start_point = list(line.dxf.start[:2])
-            round_coordinate(line_start_point)
-            line_end_point = list(line.dxf.end[:2])
-            round_coordinate(line_end_point)
-            for point in [line_start_point, line_end_point]:
-                if point not in points:
-                    points.append(point)
-        return points
+        return None
 
 
 dxfloader = DxfLoader()
