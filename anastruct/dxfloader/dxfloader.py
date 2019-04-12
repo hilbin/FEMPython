@@ -37,24 +37,17 @@ class DxfLoader:
         self.dwg = ezdxf.readfile(self.dxf_file_path)
 
     def _import_dxf_content(self):
-        lines = []
+        self.dxf_lines = []
+        self.dxf_texts_element_command = []
+        self.dxf_texts_point_command = []
         for e in self.dwg.modelspace():
             if e.dxftype() == 'LINE':
-                lines.append(e)
-        self.dxf_lines = lines
-
-        texts = []
-        for e in self.dwg.modelspace():
-            if e.dxftype() == 'TEXT':
+                self.dxf_lines.append(e)
+            elif e.dxftype() == 'TEXT':
                 if any([i in e.dxf.text for i in element_commands]):
-                    texts.append(e)
-        self.dxf_texts_element_command = texts
-        texts = []
-        for e in self.dwg.modelspace():
-            if e.dxftype() == 'TEXT':
-                if any([i in e.dxf.text for i in point_commands]):
-                    texts.append(e)
-        self.dxf_texts_point_command = texts
+                    self.dxf_texts_element_command.append(e)
+                elif any([i in e.dxf.text for i in point_commands]):
+                    self.dxf_texts_point_command.append(e)
 
     def _execute_command_from_dxf(self):
         # executing element commands
