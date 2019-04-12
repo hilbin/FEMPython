@@ -23,13 +23,18 @@ class DxfLoader:
         self.dxf_texts_point_command = []
 
     def load_dxf_data_to_system(self, dxf_file_path, system):
+        """
+        Entry point for singleton object.
+        :param dxf_file_path: (str) Path to dxf files.
+        :param system: (SystemElements) object.
+        """
         self.system = system
         if os.path.isfile(dxf_file_path):
             self._open_dxf(dxf_file_path)
             self._import_dxf_content()
             self._execute_command_from_dxf()
         else:
-            logging.error('File %s does not exist!!' % dxf_file_path)
+            raise FileNotFoundError('File {} not found'.format(dxf_file_path))
         self.system = None
 
     def _open_dxf(self, dxf_file_path):
