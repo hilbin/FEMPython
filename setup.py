@@ -27,7 +27,7 @@ setup(
     install_requires=[
         'matplotlib==3.0.3',
         'numpy==1.15.4',
-        'scipy==1.1.0'
+        'scipy==1.10.0'
     ],
     ext_modules=em
 
